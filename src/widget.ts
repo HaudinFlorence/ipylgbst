@@ -36,15 +36,13 @@ export class LegoBoostModel extends DOMWidgetModel {
       _view_module: LegoBoostModel.view_module,
       _view_module_version: LegoBoostModel.view_module_version,
       _device_info: {},
-      name: 'device1',
-      n_lanes: 3
+      name: 'device1'
     };
   }
 
   private save_device_info() {
     const device_info = {
       polling_frame: this.polling_frame,
-      lane_cmd_index: this.lane_cmd_index,
       ...this.boost.deviceInfo
     };
     this.set('_device_info', device_info);
@@ -67,10 +65,6 @@ export class LegoBoostModel extends DOMWidgetModel {
 
   initialize(attributes: any, options: any) {
     super.initialize(attributes, options);
-
-    const n_lanes: number = this.get('n_lanes');
-    console.log(`initialize with n_lanes=${n_lanes}`, this);
-
     const name: string = this.get('name');
     console.log(`initialize with name=${name}`);
     if (!(name in device_cache)) {
@@ -78,88 +72,142 @@ export class LegoBoostModel extends DOMWidgetModel {
     }
 
     this.boost = device_cache[name];
-    this.on('msg:custom', async (command: any, buffers: any) => {
-      const lane = command['lane'];
 
-      this.lanes[lane] = this.lanes[lane].then(async () => {
-        const await_in_kernel = <boolean>command['args'];
-        const await_in_frontend = <boolean>command['args'];
-        const p: Promise<void> = this.onCommand(command, buffers);
-        if (await_in_frontend) {
-          await p;
+    this.on('msg:custom', async (content: any) => {
+      if (content.event !== 'start-task') {
+        return;
+      }
+
+      console.log(`Received ${content.task_type} (${content.task_uuid})`);
+
+      try {
+        // Connect is always allowed if the device is not already connected
+        if (
+          !this.boost.deviceInfo.connected &&
+          content.task_type === 'connect'
+        ) {
+          await this.connect();
+
+          this.send({
+            event: 'task-finished',
+            task_uuid: content.task_uuid
+          });
+          return;
         }
 
-        if (await_in_kernel) {
-          this.lane_cmd_index[lane] += 1;
-          this.save_device_info();
+        // Disconnect can also be called even if already disconnected
+        if (
+          this.boost.deviceInfo.connected &&
+          content.task_type === 'disconnect'
+        ) {
+          this.disconnect();
+
+          this.send({
+            event: 'task-finished',
+            task_uuid: content.task_uuid
+          });
+          return;
         }
-      });
-    });
-  }
 
-  private async onCommand(command: any, buffers: any) {
-    console.log('onCommand', command);
-    const cmd = command['command'];
-    const args = command['args'];
+        // All other commands require a connection
+        if (!this.boost.deviceInfo.connected) {
+          throw new Error('Boost is not connected.');
+        }
 
-    if (cmd === 'connect') {
-      await this.connect();
-    } else if (cmd === 'disconnect') {
-      this.disconnect();
-    } else {
-      if (this.boost.deviceInfo.connected) {
-        switch (cmd) {
-          case 'poll':
-            this.poll();
+        switch (content.task_type) {
+          case 'motor-time':
+            this.boost.motorTime.apply(this.boost, [
+              content.data.port,
+              content.data.angle,
+              content.data.power
+            ]);
             break;
 
-          case 'led':
-            this.boost.led.apply(this.boost, args);
-            break;
-          case 'ledAsync':
-            await this.boost.ledAsync.apply(this.boost, args);
-            break;
-
-          case 'motorTime':
-            this.boost.motorTime.apply(this.boost, args);
+          case 'motor-time-async':
+            await this.boost.motorTimeAsync.apply(this.boost, [
+              content.data.port,
+              content.data.seconds,
+              content.data.power,
+              content.data.wait
+            ]);
             break;
 
-          case 'motorTimeMulti':
-            this.boost.motorTimeMulti.apply(this.boost, args);
+          case 'motor-angle':
+            this.boost.motorAngle.apply(this.boost, [
+              content.data.port,
+              content.data.angle,
+              content.data.power
+            ]);
             break;
 
-          case 'motorTimeAsync':
-            await this.boost.motorTimeAsync.apply(this.boost, args);
+          case 'motor-angle-async':
+            await this.boost.motorAngleAsync.apply(this.boost, [
+              content.data.port,
+              content.data.angle,
+              content.data.power,
+              content.data.wait
+            ]);
             break;
 
-          case 'motorTimeMultiAsync':
-            await this.boost.motorTimeMultiAsync.apply(this.boost, args);
+          case 'motor-angle-multi':
+            this.boost.motorAngleMulti.apply(this.boost, [
+              content.data.angle,
+              content.data.power_a,
+              content.data.power_b
+            ]);
             break;
 
-          case 'motorAngle':
-            this.boost.motorAngle.apply(this.boost, args);
+          case 'motor-angle-multi-async':
+            await this.boost.motorAngleMultiAsync.apply(this.boost, [
+              content.data.angle,
+              content.data.power_a,
+              content.data.power_b,
+              content.data.wait
+            ]);
             break;
 
-          case 'motorAngleMulti':
-            this.boost.motorAngleMulti.apply(this.boost, args);
+          case 'motor-time-multi':
+            this.boost.motorTimeMulti.apply(this.boost, [
+              content.data.seconds,
+              content.data.power_a,
+              content.data.power_b
+            ]);
             break;
 
-          case 'motorAngleAsync':
-            await this.boost.motorAngleAsync.apply(this.boost, args);
+          case 'motor-time-multi-async':
+            await this.boost.motorTimeAsync.apply(this.boost, [
+              content.data.port,
+              content.data.seconds,
+              content.data.power,
+              content.data.wait
+            ]);
             break;
 
-          case 'motorAngleMultiAsync':
-            await this.boost.motorAngleMultiAsync.apply(this.boost, args);
+          case 'set-led':
+            this.boost.led.apply(this.boost, [content.data.color]);
+            break;
+
+          case 'led-async':
+            await this.boost.ledAsync.apply(this.boost, [content.data.color]);
             break;
 
           default:
-            console.error(`unknown command "${cmd}"`);
+            console.error('Unknown task type.');
             break;
         }
-      } else {
-        console.log(`cannot run command ${cmd} since we are not connected`);
+        this.send({
+          event: 'task-finished',
+          task_uuid: content.task_uuid
+        });
+      } catch (err) {
+        console.error(err);
+
+        this.send({
+          event: 'task-cancelled',
+          task_uuid: content.task_uuid
+        });
       }
-    }
+    });
   }
 
   async connect() {
@@ -180,12 +228,6 @@ export class LegoBoostModel extends DOMWidgetModel {
         }
       }
       await sleep(4000);
-    }
-
-    // a bit ugly do this here
-    const n_lanes: number = this.get('n_lanes');
-    while (this.lane_cmd_index.length < n_lanes) {
-      this.lane_cmd_index.push(0);
     }
 
     if (!this.polling_is_running) {
@@ -214,13 +256,6 @@ export class LegoBoostModel extends DOMWidgetModel {
   private polling_is_running = false;
   stop_polling = false;
   //private currentProcessing: Promise<void> = Promise.resolve();
-
-  private lane_cmd_index: Array<number> = [0];
-  private lanes: Array<Promise<void>> = [
-    Promise.resolve(),
-    Promise.resolve(),
-    Promise.resolve()
-  ];
 
   static model_name = 'LegoBoostModel';
   static model_module = MODULE_NAME;
