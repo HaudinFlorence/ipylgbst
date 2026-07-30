@@ -57,11 +57,12 @@ export class LegoBoostModel extends DOMWidgetModel {
     this.poll();
     if (!this.stop_polling) {
       this.polling_is_running = true;
-      setTimeout(this.polling.bind(this), 200);
+      setTimeout(this.polling.bind(this), 120000);
     } else {
       this.polling_is_running = false;
     }
   }
+
 
   initialize(attributes: any, options: any) {
     super.initialize(attributes, options);
@@ -116,96 +117,101 @@ export class LegoBoostModel extends DOMWidgetModel {
 
         switch (content.task_type) {
           case 'motor-time':
-            this.boost.motorTime.apply(this.boost, [
+            this.boost.motorTime(
               content.data.port,
               content.data.angle,
               content.data.power
-            ]);
+            );
             break;
 
           case 'motor-time-async':
-            await this.boost.motorTimeAsync.apply(this.boost, [
+            await this.boost.motorTimeAsync(
               content.data.port,
               content.data.seconds,
               content.data.power,
               content.data.wait
-            ]);
+            );
             break;
 
           case 'motor-angle':
-            this.boost.motorAngle.apply(this.boost, [
+            this.boost.motorAngle(
               content.data.port,
               content.data.angle,
               content.data.power
-            ]);
+            );
             break;
 
           case 'motor-angle-async':
-            await this.boost.motorAngleAsync.apply(this.boost, [
+            await this.boost.motorAngleAsync(
               content.data.port,
               content.data.angle,
               content.data.power,
               content.data.wait
-            ]);
+            );
             break;
 
           case 'motor-angle-multi':
-            this.boost.motorAngleMulti.apply(this.boost, [
+            this.boost.motorAngleMulti(
               content.data.angle,
               content.data.power_a,
               content.data.power_b
-            ]);
+            );
             break;
 
           case 'motor-angle-multi-async':
-            await this.boost.motorAngleMultiAsync.apply(this.boost, [
+            await this.boost.motorAngleMultiAsync(
               content.data.angle,
               content.data.power_a,
               content.data.power_b,
               content.data.wait
-            ]);
+            );
             break;
 
           case 'motor-time-multi':
-            this.boost.motorTimeMulti.apply(this.boost, [
+            this.boost.motorTimeMulti(
               content.data.seconds,
               content.data.power_a,
               content.data.power_b
-            ]);
+            );
             break;
 
           case 'motor-time-multi-async':
-            await this.boost.motorTimeAsync.apply(this.boost, [
+            await this.boost.motorTimeAsync(
               content.data.port,
               content.data.seconds,
               content.data.power,
               content.data.wait
-            ]);
+            );
             break;
 
           case 'set-led':
-            this.boost.led.apply(this.boost, [content.data.color]);
+            this.boost.led(content.data.color);
             break;
 
           case 'led-async':
-            await this.boost.ledAsync.apply(this.boost, [content.data.color]);
+            await this.boost.ledAsync(content.data.color);
             break;
 
           default:
             console.error('Unknown task type.');
             break;
         }
+
         this.send({
           event: 'task-finished',
           task_uuid: content.task_uuid
         });
       } catch (err) {
-        console.error(err);
-
-        this.send({
-          event: 'task-cancelled',
-          task_uuid: content.task_uuid
-        });
+        console.error('task failed for', content.task_uuid, err);
+        try {
+          this.send({
+            event: 'task-cancelled',
+            task_uuid: content.task_uuid,
+            error: String(err)
+          });
+        } catch (e) {
+          console.error('failed to send cancel for', content.task_uuid, e);
+        }
       }
     });
   }

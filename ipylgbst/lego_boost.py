@@ -10,23 +10,17 @@ TODO: Add module docstring
 from IPython.display import display
 
 
-from ipywidgets import DOMWidget, Output
-from traitlets import Unicode, Int, Float, Bool, Complex, Dict
+from ipywidgets import DOMWidget
+from traitlets import Unicode, Dict
 from ._frontend import module_name, module_version
 
 import asyncio
 
 from enum import Enum
-from contextlib import contextmanager, redirect_stdout
 
-
-from io import StringIO
-import sys
 import math
-import traceback
 import uuid
-
-
+import inspect
 
 def wait_for_change(widget, value):
     """
@@ -151,15 +145,16 @@ class LegoBoostWidget(DOMWidget):
 
     def __init__(self, *args, **kwargs):
         super(LegoBoostWidget, self).__init__(*args, **kwargs)
-        self.on_msg(self._handle_msg)
+        self.on_msg(self._handle_custom_comm_msg)
         self._pending_tasks = {}
+        
 
     # Method that handles with the different comm messages received from the frontend
-    def _handle_msg(self, _,  content, buffers):
+    def _handle_custom_comm_msg(self, _,  content, buffers):
         event = content.get("event")
-        task_uuid = content["task_uuid"]
+        task_uuid = content.get("task_uuid")
         task = self._pending_tasks.get(task_uuid)
-            
+        
         if task is not None and not task.done():
             if event == "task-finished":
                 task._set_result()
@@ -226,7 +221,7 @@ class LegoBoostWidget(DOMWidget):
         await self._poll()
         return self._device_info["color"]
 
-    def motor_angle_async(self, port, angle, power):
+    async def motor_angle_async(self, port, angle, power):
         """
             Turn a motor for a given angle:
 
@@ -252,9 +247,9 @@ class LegoBoostWidget(DOMWidget):
             "task_type": task_type,
             "data": {"port": port, "angle": angle, "power": power, "wait": wait  }
         })
-        return task
+        return await task
 
-    def motor_angle_multi_async(self, angle, power_a, power_b):
+    async def motor_angle_multi_async(self, angle, power_a, power_b):
         """
             Turn both motors for a given angle:
 
@@ -278,7 +273,7 @@ class LegoBoostWidget(DOMWidget):
             "task_type": task_type,
             "data": {"angle": angle, "power_a": power_a, "power_b": power_b, "wait": wait}
         })
-        return task
+        return await task
 
     async def motor_time_async(self, port, seconds, power):
         """
@@ -306,7 +301,7 @@ class LegoBoostWidget(DOMWidget):
             "task_type": task_type,
             "data": {"port": port, "seconds": seconds, "power": power, "wait": wait}
         })
-        return task
+        return await task
 
     async def motor_time_multi_async(self, seconds, power_a, power_b):
         """
@@ -332,10 +327,10 @@ class LegoBoostWidget(DOMWidget):
             "task_type": task_type,
             "data": {"seconds": seconds, "power_a": power_a, "power_b": power_b, "wait": wait}
         })
-        return task
+        return await task
         
 
-    async def set_led_async(self, color):
+    def set_led_async(self, color):
         """ Set the color of the LED on the Boost Move Hub.
 
             Args:
@@ -482,4 +477,3 @@ class LegoBoostWidget(DOMWidget):
         })
         return task
         
-
