@@ -57,12 +57,11 @@ export class LegoBoostModel extends DOMWidgetModel {
     this.poll();
     if (!this.stop_polling) {
       this.polling_is_running = true;
-      setTimeout(this.polling.bind(this), 120000);
+      setTimeout(this.polling.bind(this), 200);
     } else {
       this.polling_is_running = false;
     }
   }
-
 
   initialize(attributes: any, options: any) {
     super.initialize(attributes, options);
