@@ -78,7 +78,7 @@ export class LegoBoostModel extends DOMWidgetModel {
         return;
       }
 
-      console.log(`Received ${content.task_type} (${content.task_uuid})`);
+      console.log(`Received ${content.task_type} task`);
 
       try {
         // Connect is always allowed if the device is not already connected
@@ -90,7 +90,8 @@ export class LegoBoostModel extends DOMWidgetModel {
 
           this.send({
             event: 'task-finished',
-            task_uuid: content.task_uuid
+            task_uuid: content.task_uuid,
+            task_type: content.task_type
           });
           return;
         }
@@ -104,7 +105,8 @@ export class LegoBoostModel extends DOMWidgetModel {
 
           this.send({
             event: 'task-finished',
-            task_uuid: content.task_uuid
+            task_uuid: content.task_uuid,
+            task_type: content.task_type
           });
           return;
         }
@@ -198,18 +200,30 @@ export class LegoBoostModel extends DOMWidgetModel {
 
         this.send({
           event: 'task-finished',
-          task_uuid: content.task_uuid
+          task_uuid: content.task_uuid,
+          task_type: content.task_type
         });
       } catch (err) {
-        console.error('task failed for', content.task_uuid, err);
+        console.error(
+          'task failed for',
+          content.task_uuid,
+          content.task_type,
+          err
+        );
         try {
           this.send({
             event: 'task-cancelled',
             task_uuid: content.task_uuid,
+            task_type: content.task_type,
             error: String(err)
           });
         } catch (e) {
-          console.error('failed to send cancel for', content.task_uuid, e);
+          console.error(
+            'failed to send cancel for',
+            content.task_uuid,
+            content.tast_type,
+            e
+          );
         }
       }
     });

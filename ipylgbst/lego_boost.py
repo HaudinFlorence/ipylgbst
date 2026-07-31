@@ -147,52 +147,44 @@ class LegoBoostWidget(DOMWidget):
         super(LegoBoostWidget, self).__init__(*args, **kwargs)
         self.on_msg(self._handle_custom_comm_msg)
         self._pending_tasks = {}
+    
+    def _create_task(self, task_type, data):
+        task_uuid = str(uuid.uuid4())
+        task_type = task_type
+        task = Task(widget = self,task_uuid=task_uuid, task_type=task_type)
+        self._pending_tasks[task_uuid] = task
+                              
+        self.send({
+            "event": "start-task",
+            "task_uuid": task_uuid,
+            "task_type": task_type,
+            "data": data
+        })
+        return task
         
-
     # Method that handles with the different comm messages received from the frontend
     def _handle_custom_comm_msg(self, _,  content, buffers):
         event = content.get("event")
         task_uuid = content.get("task_uuid")
+        task_type = content.get("task_type")
         task = self._pending_tasks.get(task_uuid)
         
         if task is not None and not task.done():
             if event == "task-finished":
                 task._set_result()
-                print(f"Task with UUID: {task_uuid} finished")
+                print(f"Task {task_type} finished")
                 
             if event == "task-cancelled":
                 task._set_cancelled()
-                print(f"Task with UUID: {task_uuid} cancelled")
+                print(f"Task {task_type} cancelled")
 
             del self._pending_tasks[task_uuid]
     
     def connect(self):
-        task_uuid = str(uuid.uuid4())
-        task_type = "connect"
-        task = Task(widget = self,task_uuid=task_uuid, task_type=task_type)
-        self._pending_tasks[task_uuid] = task
-        
-        
-        self.send({
-            "event": "start-task",
-            "task_uuid": task_uuid,
-            "task_type": task_type
-        })
-        return task
+        return self._create_task(task_type="connect", data={})
     
     def disconnect(self):
-            task_uuid = str(uuid.uuid4())
-            task_type = "disconnect"
-            task = Task(widget = self,task_uuid=task_uuid, task_type=task_type)
-            self._pending_tasks[task_uuid] = task
-                     
-            self.send({
-                "event": "start-task",
-                "task_uuid": task_uuid,
-                "task_type": task_type
-            })
-            return task
-    
+        return self._create_task(task_type="disconnect", data={}) 
 
     async def _poll(self):
         await wait_for_change(self, "_device_info")
@@ -235,19 +227,7 @@ class LegoBoostWidget(DOMWidget):
         if isinstance(port, Port):
             port = port.value
         wait = True
-        
-        task_uuid = str(uuid.uuid4())
-        task_type = "motor-angle-async"
-        task = Task(widget = self,task_uuid=task_uuid, task_type=task_type)
-        self._pending_tasks[task_uuid] = task              
-                
-        self.send({
-            "event": "start-task",
-            "task_uuid": task_uuid,
-            "task_type": task_type,
-            "data": {"port": port, "angle": angle, "power": power, "wait": wait  }
-        })
-        return await task
+        return await self._create_task(task_type="motor-angle-async", data={"port": port, "angle": angle, "power": power, "wait": wait})
 
     async def motor_angle_multi_async(self, angle, power_a, power_b):
         """
@@ -261,19 +241,7 @@ class LegoBoostWidget(DOMWidget):
             Warning: This function needs to be awaited before the next command can be executed.
         """
         wait = True
-
-        task_uuid = str(uuid.uuid4())
-        task_type = "motor-angle-multi-async"
-        task = Task(widget = self,task_uuid=task_uuid, task_type=task_type)
-        self._pending_tasks[task_uuid] = task              
-                        
-        self.send({
-            "event": "start-task",
-            "task_uuid": task_uuid,
-            "task_type": task_type,
-            "data": {"angle": angle, "power_a": power_a, "power_b": power_b, "wait": wait}
-        })
-        return await task
+        return await self._create_task(task_type="motor-angle-multi-async", data= {"angle": angle, "power_a": power_a, "power_b": power_b, "wait": wait})
 
     async def motor_time_async(self, port, seconds, power):
         """
@@ -290,18 +258,7 @@ class LegoBoostWidget(DOMWidget):
             port = port.value
         wait = True
        
-        task_uuid = str(uuid.uuid4())
-        task_type = "motor-time-async"
-        task = Task(widget = self,task_uuid=task_uuid, task_type=task_type)
-        self._pending_tasks[task_uuid] = task              
-                                
-        self.send({
-            "event": "start-task",
-            "task_uuid": task_uuid,
-            "task_type": task_type,
-            "data": {"port": port, "seconds": seconds, "power": power, "wait": wait}
-        })
-        return await task
+        return await self._create_task(task_type="motor-time-async", data={"port": port, "seconds": seconds, "power": power, "wait": wait})
 
     async def motor_time_multi_async(self, seconds, power_a, power_b):
         """
@@ -315,22 +272,11 @@ class LegoBoostWidget(DOMWidget):
             Warning: This function needs to be awaited before the next command can be executed.
         """
         wait = True
-
-        task_uuid = str(uuid.uuid4())
-        task_type = "motor-time-multi-async"
-        task = Task(widget = self,task_uuid=task_uuid, task_type=task_type)
-        self._pending_tasks[task_uuid] = task              
-                                        
-        self.send({
-            "event": "start-task",
-            "task_uuid": task_uuid,
-            "task_type": task_type,
-            "data": {"seconds": seconds, "power_a": power_a, "power_b": power_b, "wait": wait}
-        })
-        return await task
+        
+        return await self.connect(task_type="motor-time-multi-async", data={"seconds": seconds, "power_a": power_a, "power_b": power_b, "wait": wait})
         
 
-    def set_led_async(self, color):
+    async def set_led_async(self, color):
         """ Set the color of the LED on the Boost Move Hub.
 
             Args:
@@ -341,19 +287,8 @@ class LegoBoostWidget(DOMWidget):
      
         if isinstance(color, LedColor):
                 color = color.value
-    
-        task_uuid = str(uuid.uuid4())
-        task_type = "led-async"
-        task = Task(widget = self,task_uuid=task_uuid, task_type=task_type)
-        self._pending_tasks[task_uuid] = task              
-                                                
-        self.send({
-            "event": "start-task",
-            "task_uuid": task_uuid,
-            "task_type": task_type,
-            "data": {"color": color}
-        })
-        return task
+                
+        return await self._create_task(task_type="led-async", data={"color": color})
 
     def motor_time(self, port, seconds, power):
         """ Turn a motor for a given time:
@@ -367,19 +302,8 @@ class LegoBoostWidget(DOMWidget):
         """
         if isinstance(port, Port):
             port = port.value
-        
-        task_uuid = str(uuid.uuid4())
-        task_type = "motor-time"
-        task = Task(widget = self,task_uuid=task_uuid, task_type=task_type)
-        self._pending_tasks[task_uuid] = task              
-                                        
-        self.send({
-            "event": "start-task",
-            "task_uuid": task_uuid,
-            "task_type": task_type,
-            "data": {"port": port, "seconds": seconds, "power": power}
-        })
-        return task
+  
+        return self._create_task(task_type="motor-time", data = {"port": port, "seconds": seconds, "power": power} )
 
     def motor_angle(self, port, angle, power):
         """ Turn a motor for a given angle:
@@ -395,18 +319,7 @@ class LegoBoostWidget(DOMWidget):
         if isinstance(port, Port):
             port = port.value
   
-        task_uuid = str(uuid.uuid4())
-        task_type = "motor-angle"
-        task = Task(widget = self,task_uuid=task_uuid, task_type=task_type)
-        self._pending_tasks[task_uuid] = task              
-                                        
-        self.send({
-            "event": "start-task",
-            "task_uuid": task_uuid,
-            "task_type": task_type,
-            "data": {"port": port, "angle": angle, "power": power}
-        })
-        return task
+        return self._create_task(task_type="motor-angle", data = {"port": port, "angle": angle, "power": power})
 
     def motor_time_multi(self, seconds, power_a, power_b):
         """ Turn both motors for a given time:
@@ -418,18 +331,7 @@ class LegoBoostWidget(DOMWidget):
 
             Warning: even though this function is not async, it is non-blocking.
         """       
-        task_uuid = str(uuid.uuid4())
-        task_type = "motor-time-multi"
-        task = Task(widget = self,task_uuid=task_uuid, task_type=task_type)
-        self._pending_tasks[task_uuid] = task              
-                                                
-        self.send({
-            "event": "start-task",
-            "task_uuid": task_uuid,
-            "task_type": task_type,
-            "data": {"seconds": seconds, "power_a": power_a, "power_b": power_b}
-        })
-        return task
+        return self._create_task(task_type="motor-time-multi", data = {"seconds": seconds, "power_a": power_a, "power_b": power_b})
 
     def motor_angle_multi(self, angle, power_a, power_b):
         """ Turn both motors for a given angle:
@@ -441,18 +343,7 @@ class LegoBoostWidget(DOMWidget):
             
             Warning: even though this function is not async, it is non-blocking.
         """        
-        task_uuid = str(uuid.uuid4())
-        task_type = "motor-angle-multi"
-        task = Task(widget = self,task_uuid=task_uuid, task_type=task_type)
-        self._pending_tasks[task_uuid] = task              
-                                
-        self.send({
-            "event": "start-task",
-            "task_uuid": task_uuid,
-            "task_type": task_type,
-            "data": {"angle": angle, "power_a": power_a, "power_b": power_b}
-        })
-        return task
+        return self._create_task(task_type="motor-angle-multi", data={"angle": angle, "power_a": power_a, "power_b": power_b})
 
     def set_led(self, color):
         """ Set the color of the LED on the Boost Move Hub.
@@ -464,16 +355,6 @@ class LegoBoostWidget(DOMWidget):
         """
         if isinstance(color, LedColor):
             color = color.value
-        task_uuid = str(uuid.uuid4())
-        task_type = "set-led"
-        task = Task(widget = self,task_uuid=task_uuid, task_type=task_type)
-        self._pending_tasks[task_uuid] = task              
-                                                        
-        self.send({
-            "event": "start-task",
-            "task_uuid": task_uuid,
-            "task_type": task_type,
-            "data": {"color": color}
-        })
-        return task
+ 
+        return self._create_task(task_type="set-led", data = {"color": color})
         
