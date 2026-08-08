@@ -74,157 +74,187 @@ export class LegoBoostModel extends DOMWidgetModel {
     this.boost = device_cache[name];
 
     this.on('msg:custom', async (content: any) => {
-      if (content.event !== 'start-task') {
-        return;
+      switch (content.event) {
+        case 'start-task':
+          console.log(`Received ${content.task_type} task`);
+
+          try {
+            // Connect is always allowed if the device is not already connected
+            if (
+              !this.boost.deviceInfo.connected &&
+              content.task_type === 'connect'
+            ) {
+              await this.connect();
+
+              this.send({
+                event: 'task-finished',
+                task_uuid: content.task_uuid,
+                task_type: content.task_type
+              });
+              return;
+            }
+
+            // Disconnect can also be called even if already disconnected
+            if (
+              this.boost.deviceInfo.connected &&
+              content.task_type === 'disconnect'
+            ) {
+              this.disconnect();
+
+              this.send({
+                event: 'task-finished',
+                task_uuid: content.task_uuid,
+                task_type: content.task_type
+              });
+              return;
+            }
+
+            // All other commands require a connection
+            if (!this.boost.deviceInfo.connected) {
+              throw new Error('Boost is not connected.');
+            }
+
+            switch (content.task_type) {
+              case 'motor-time':
+                this.boost.motorTime(
+                  content.data.port,
+                  content.data.seconds,
+                  content.data.angle
+                );
+                break;
+
+              case 'motor-time-async':
+                await this.boost.motorTimeAsync(
+                  content.data.port,
+                  content.data.seconds,
+                  content.data.power,
+                  content.data.wait
+                );
+                break;
+
+              case 'motor-angle':
+                this.boost.motorAngle(
+                  content.data.port,
+                  content.data.angle,
+                  content.data.power
+                );
+                break;
+
+              case 'motor-angle-async':
+                await this.boost.motorAngleAsync(
+                  content.data.port,
+                  content.data.angle,
+                  content.data.power,
+                  content.data.wait
+                );
+                break;
+
+              case 'motor-angle-multi':
+                this.boost.motorAngleMulti(
+                  content.data.angle,
+                  content.data.power_a,
+                  content.data.power_b
+                );
+                break;
+
+              case 'motor-angle-multi-async':
+                await this.boost.motorAngleMultiAsync(
+                  content.data.angle,
+                  content.data.power_a,
+                  content.data.power_b,
+                  content.data.wait
+                );
+                break;
+
+              case 'motor-time-multi':
+                this.boost.motorTimeMulti(
+                  content.data.seconds,
+                  content.data.power_a,
+                  content.data.power_b
+                );
+                break;
+
+              case 'motor-time-multi-async':
+                await this.boost.motorTimeMultiAsync(
+                  content.data.seconds,
+                  content.data.power_a,
+                  content.data.power_b,
+                  content.data.wait
+                );
+                break;
+
+              case 'set-led':
+                this.boost.led(content.data.color);
+                break;
+
+              case 'led-async':
+                await this.boost.ledAsync(content.data.color);
+                break;
+
+              default:
+                console.error('Unknown task type.');
+                break;
+            }
+
+            this.send({
+              event: 'task-finished',
+              task_uuid: content.task_uuid,
+              task_type: content.task_type
+            });
+          } catch (err) {
+            console.error(
+              'task failed for',
+              content.task_uuid,
+              content.task_type,
+              err
+            );
+            try {
+              this.send({
+                event: 'task-cancelled',
+                task_uuid: content.task_uuid,
+                task_type: content.task_type,
+                error: String(err)
+              });
+            } catch (e) {
+              console.error(
+                'failed to send cancel for',
+                content.task_uuid,
+                content.task_type,
+                e
+              );
+            }
+          }
+          break;
       }
-
-      console.log(`Received ${content.task_type} task`);
-
-      try {
-        // Connect is always allowed if the device is not already connected
-        if (
-          !this.boost.deviceInfo.connected &&
-          content.task_type === 'connect'
-        ) {
-          await this.connect();
-
-          this.send({
-            event: 'task-finished',
-            task_uuid: content.task_uuid,
-            task_type: content.task_type
-          });
-          return;
-        }
-
-        // Disconnect can also be called even if already disconnected
-        if (
-          this.boost.deviceInfo.connected &&
-          content.task_type === 'disconnect'
-        ) {
-          this.disconnect();
-
-          this.send({
-            event: 'task-finished',
-            task_uuid: content.task_uuid,
-            task_type: content.task_type
-          });
-          return;
-        }
-
-        // All other commands require a connection
-        if (!this.boost.deviceInfo.connected) {
-          throw new Error('Boost is not connected.');
-        }
-
-        switch (content.task_type) {
-          case 'motor-time':
-            this.boost.motorTime(
-              content.data.port,
-              content.data.angle,
-              content.data.power
+      switch (content.event) {
+        case 'cancel-task':
+          try {
+            if (
+              content.task_type === 'motor-time' ||
+              content.task_type === 'motor-angle' ||
+              content.task_type === 'motor-time-multi' ||
+              content.task_type === 'motor-angle-multi'
+            ) {
+              // common stop: zero-power motors
+              this.boost.motorTimeMulti(0, 0, 0);
+            }
+            if (content.task_type === 'set-led') {
+              // common stop: turn off led
+              this.boost.led('off');
+            }
+            this.send({
+              event: 'task-cancelled',
+              task_uuid: content.task_uuid
+            });
+          } catch (err) {
+            console.error(
+              'task cancel failed for',
+              content.task_uuid,
+              content.task_type,
+              err
             );
-            break;
-
-          case 'motor-time-async':
-            await this.boost.motorTimeAsync(
-              content.data.port,
-              content.data.seconds,
-              content.data.power,
-              content.data.wait
-            );
-            break;
-
-          case 'motor-angle':
-            this.boost.motorAngle(
-              content.data.port,
-              content.data.angle,
-              content.data.power
-            );
-            break;
-
-          case 'motor-angle-async':
-            await this.boost.motorAngleAsync(
-              content.data.port,
-              content.data.angle,
-              content.data.power,
-              content.data.wait
-            );
-            break;
-
-          case 'motor-angle-multi':
-            this.boost.motorAngleMulti(
-              content.data.angle,
-              content.data.power_a,
-              content.data.power_b
-            );
-            break;
-
-          case 'motor-angle-multi-async':
-            await this.boost.motorAngleMultiAsync(
-              content.data.angle,
-              content.data.power_a,
-              content.data.power_b,
-              content.data.wait
-            );
-            break;
-
-          case 'motor-time-multi':
-            this.boost.motorTimeMulti(
-              content.data.seconds,
-              content.data.power_a,
-              content.data.power_b
-            );
-            break;
-
-          case 'motor-time-multi-async':
-            await this.boost.motorTimeAsync(
-              content.data.port,
-              content.data.seconds,
-              content.data.power,
-              content.data.wait
-            );
-            break;
-
-          case 'set-led':
-            this.boost.led(content.data.color);
-            break;
-
-          case 'led-async':
-            await this.boost.ledAsync(content.data.color);
-            break;
-
-          default:
-            console.error('Unknown task type.');
-            break;
-        }
-
-        this.send({
-          event: 'task-finished',
-          task_uuid: content.task_uuid,
-          task_type: content.task_type
-        });
-      } catch (err) {
-        console.error(
-          'task failed for',
-          content.task_uuid,
-          content.task_type,
-          err
-        );
-        try {
-          this.send({
-            event: 'task-cancelled',
-            task_uuid: content.task_uuid,
-            task_type: content.task_type,
-            error: String(err)
-          });
-        } catch (e) {
-          console.error(
-            'failed to send cancel for',
-            content.task_uuid,
-            content.tast_type,
-            e
-          );
-        }
+          }
+          break;
       }
     });
   }

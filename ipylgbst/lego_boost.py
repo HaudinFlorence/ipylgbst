@@ -213,7 +213,7 @@ class LegoBoostWidget(DOMWidget):
         await self._poll()
         return self._device_info["color"]
 
-    async def motor_angle_async(self, port, angle, power):
+    def motor_angle_async(self, port, angle, power):
         """
             Turn a motor for a given angle:
 
@@ -227,9 +227,9 @@ class LegoBoostWidget(DOMWidget):
         if isinstance(port, Port):
             port = port.value
         wait = True
-        return await self._create_task(task_type="motor-angle-async", data={"port": port, "angle": angle, "power": power, "wait": wait})
+        return self._create_task(task_type="motor-angle-async", data={"port": port, "angle": angle, "power": power, "wait": wait})
 
-    async def motor_angle_multi_async(self, angle, power_a, power_b):
+    def motor_angle_multi_async(self, angle, power_a, power_b):
         """
             Turn both motors for a given angle:
 
@@ -241,9 +241,9 @@ class LegoBoostWidget(DOMWidget):
             Warning: This function needs to be awaited before the next command can be executed.
         """
         wait = True
-        return await self._create_task(task_type="motor-angle-multi-async", data= {"angle": angle, "power_a": power_a, "power_b": power_b, "wait": wait})
+        return self._create_task(task_type="motor-angle-multi-async", data= {"angle": angle, "power_a": power_a, "power_b": power_b, "wait": wait})
 
-    async def motor_time_async(self, port, seconds, power):
+    def motor_time_async(self, port, seconds, power):
         """
             Turn a motor for a given time:
             
@@ -258,9 +258,9 @@ class LegoBoostWidget(DOMWidget):
             port = port.value
         wait = True
        
-        return await self._create_task(task_type="motor-time-async", data={"port": port, "seconds": seconds, "power": power, "wait": wait})
+        return self._create_task(task_type="motor-time-async", data={"port": port, "seconds": seconds, "power": power, "wait": wait})
 
-    async def motor_time_multi_async(self, seconds, power_a, power_b):
+    def motor_time_multi_async(self, seconds, power_a, power_b):
         """
             Turn both motors for a given time:
 
@@ -273,10 +273,10 @@ class LegoBoostWidget(DOMWidget):
         """
         wait = True
         
-        return await self.connect(task_type="motor-time-multi-async", data={"seconds": seconds, "power_a": power_a, "power_b": power_b, "wait": wait})
+        return self._create_task(task_type="motor-time-multi-async", data={"seconds": seconds, "power_a": power_a, "power_b": power_b, "wait": wait})
         
 
-    async def set_led_async(self, color):
+    def set_led_async(self, color):
         """ Set the color of the LED on the Boost Move Hub.
 
             Args:
@@ -288,7 +288,7 @@ class LegoBoostWidget(DOMWidget):
         if isinstance(color, LedColor):
                 color = color.value
                 
-        return await self._create_task(task_type="led-async", data={"color": color})
+        return self._create_task(task_type="led-async", data={"color": color})
 
     def motor_time(self, port, seconds, power):
         """ Turn a motor for a given time:
@@ -311,7 +311,6 @@ class LegoBoostWidget(DOMWidget):
             Args:
                 port (Port): The port of the motor.
                 angle (float): The angle in degrees.
-                angle (int): The power of the motor.
                 power (int): The power of the motor.
             
             Warning: even though this function is not async, it is non-blocking.
