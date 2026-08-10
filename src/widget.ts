@@ -116,14 +116,6 @@ export class LegoBoostModel extends DOMWidgetModel {
 
             switch (content.task_type) {
               case 'motor-time':
-                this.boost.motorTime(
-                  content.data.port,
-                  content.data.seconds,
-                  content.data.angle
-                );
-                break;
-
-              case 'motor-time-async':
                 await this.boost.motorTimeAsync(
                   content.data.port,
                   content.data.seconds,
@@ -133,14 +125,6 @@ export class LegoBoostModel extends DOMWidgetModel {
                 break;
 
               case 'motor-angle':
-                this.boost.motorAngle(
-                  content.data.port,
-                  content.data.angle,
-                  content.data.power
-                );
-                break;
-
-              case 'motor-angle-async':
                 await this.boost.motorAngleAsync(
                   content.data.port,
                   content.data.angle,
@@ -150,14 +134,6 @@ export class LegoBoostModel extends DOMWidgetModel {
                 break;
 
               case 'motor-angle-multi':
-                this.boost.motorAngleMulti(
-                  content.data.angle,
-                  content.data.power_a,
-                  content.data.power_b
-                );
-                break;
-
-              case 'motor-angle-multi-async':
                 await this.boost.motorAngleMultiAsync(
                   content.data.angle,
                   content.data.power_a,
@@ -167,14 +143,6 @@ export class LegoBoostModel extends DOMWidgetModel {
                 break;
 
               case 'motor-time-multi':
-                this.boost.motorTimeMulti(
-                  content.data.seconds,
-                  content.data.power_a,
-                  content.data.power_b
-                );
-                break;
-
-              case 'motor-time-multi-async':
                 await this.boost.motorTimeMultiAsync(
                   content.data.seconds,
                   content.data.power_a,
@@ -184,10 +152,6 @@ export class LegoBoostModel extends DOMWidgetModel {
                 break;
 
               case 'set-led':
-                this.boost.led(content.data.color);
-                break;
-
-              case 'led-async':
                 await this.boost.ledAsync(content.data.color);
                 break;
 
